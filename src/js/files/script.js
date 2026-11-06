@@ -1029,3 +1029,278 @@ if (selectElements2) {
         });
     });
 }
+
+//========================================================================================================================================================
+
+class ProfilesManager {
+    
+    constructor(element) {
+        // Защита от ошибок при инициализации
+        try {
+            if (typeof element === 'string') {
+                this.container = document.querySelector(element);
+            } else if (element instanceof Element) {
+                this.container = element;
+            } else {
+                console.warn('ProfilesManager: передан некорректный аргумент. Ожидается селектор или DOM-элемент');
+                return;
+            }
+
+            if (!this.container) {
+                console.warn('ProfilesManager: контейнер не найден');
+                return;
+            }
+
+            this.moreLink = null;
+            this.totalItems = 0;
+
+            // Добавляем флаг для предотвращения множественных инициализаций
+            if (this.container.profilesManager) {
+                return;
+            }
+
+            this.init();
+            this.container.profilesManager = this;
+        } catch (error) {
+            console.error('ProfilesManager: ошибка инициализации', error);
+        }
+    }
+
+    init() {
+        // Безопасный поиск ссылки
+        try {
+            const parentBody = this.container.closest('.item-products-profile__body');
+            this.moreLink = parentBody ? parentBody.querySelector('a') : null;
+            this.totalItems = this.container.children.length;
+
+            this.container.classList.remove('has-more');
+
+            // Используем requestAnimationFrame для оптимизации производительности
+            requestAnimationFrame(() => this.checkOverflow());
+
+            // Оптимизированный обработчик resize с throttle
+            let resizeTimeout;
+            window.addEventListener('resize', () => {
+                clearTimeout(resizeTimeout);
+                resizeTimeout = setTimeout(() => this.checkOverflow(), 100);
+            });
+
+            // Упрощенный MutationObserver без отслеживания style/class
+            const observer = new MutationObserver((mutations) => {
+                // Проверяем, были ли реальные изменения в DOM
+                const hasSignificantChanges = mutations.some(m =>
+                    m.type === 'childList' ||
+                    (m.type === 'attributes' && m.attributeName === 'style')
+                );
+
+                if (hasSignificantChanges) {
+                    this.totalItems = this.container.children.length;
+                    this.checkOverflow();
+                }
+            });
+
+            observer.observe(this.container, {
+                childList: true,
+                subtree: false,
+                attributes: false // Отключаем отслеживание атрибутов для предотвращения циклов
+            });
+        } catch (error) {
+            console.error('ProfilesManager: ошибка в init', error);
+        }
+    }
+
+    checkOverflow() {
+        if (!this.container || !this.container.isConnected) return;
+
+        try {
+            // Добавляем проверку видимости контейнера
+            const style = window.getComputedStyle(this.container);
+            if (style.display === 'none' || style.visibility === 'hidden') {
+                return;
+            }
+
+            const hasOverflow = this.container.scrollWidth > this.container.clientWidth + 2; // Добавляем небольшой допуск
+
+            if (hasOverflow) {
+                this.container.classList.add('has-more');
+                this.updateMoreLinkCount();
+            } else {
+                this.container.classList.remove('has-more');
+            }
+        } catch (error) {
+            console.error('ProfilesManager: ошибка в checkOverflow', error);
+        }
+    }
+
+    updateMoreLinkCount() {
+        if (!this.moreLink) return;
+
+        try {
+            const visibleCount = this.calculateVisibleCount();
+            const hiddenCount = this.totalItems - visibleCount;
+
+            if (hiddenCount > 0) {
+                this.moreLink.textContent = `+${hiddenCount}`;
+            } else {
+                if (this.container.scrollWidth > this.container.clientWidth + 2) {
+                    this.moreLink.textContent = '+1';
+                }
+            }
+        } catch (error) {
+            console.error('ProfilesManager: ошибка в updateMoreLinkCount', error);
+        }
+    }
+
+    calculateVisibleCount() {
+        try {
+            const containerWidth = this.container.clientWidth;
+            let usedWidth = 0;
+            let visibleCount = 0;
+
+            const containerStyle = window.getComputedStyle(this.container);
+            const gap = parseInt(containerStyle.gap) || 4;
+            const tolerance = 2;
+
+            for (let i = 0; i < this.container.children.length; i++) {
+                const item = this.container.children[i];
+                const itemWidth = item.offsetWidth;
+
+                if (itemWidth === 0) continue;
+
+                if (i > 0) {
+                    usedWidth += gap;
+                }
+
+                if (usedWidth + itemWidth <= containerWidth + tolerance) {
+                    usedWidth += itemWidth;
+                    visibleCount++;
+                } else {
+                    break;
+                }
+            }
+
+            return visibleCount;
+        } catch (error) {
+            console.error('ProfilesManager: ошибка в calculateVisibleCount', error);
+            return 0;
+        }
+    }
+
+    refresh() {
+        requestAnimationFrame(() => this.checkOverflow());
+    }
+}
+
+// Ждем полной загрузки DOM перед инициализацией
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initializeProfilesManagers);
+} else {
+    initializeProfilesManagers();
+}
+
+function initializeProfilesManagers() {
+    try {
+        // Используем setTimeout для неблокирующего выполнения
+        setTimeout(() => {
+            const containers = document.querySelectorAll('.item-products-profile__items');
+            containers.forEach(container => {
+                // Проверяем, не инициализирован ли уже менеджер
+                if (!container.profilesManager) {
+                    new ProfilesManager(container);
+                }
+            });
+
+            // Дополнительная проверка после полной загрузки страницы
+            if (document.readyState === 'complete') {
+                containers.forEach(container => {
+                    if (container.profilesManager) {
+                        container.profilesManager.refresh();
+                    }
+                });
+            } else {
+                window.addEventListener('load', () => {
+                    containers.forEach(container => {
+                        if (container.profilesManager) {
+                            container.profilesManager.refresh();
+                        }
+                    });
+                });
+            }
+        }, 0);
+    } catch (error) {
+        console.error('ProfilesManager: ошибка инициализации менеджеров', error);
+    }
+}
+
+//========================================================================================================================================================
+
+// Находим контейнер фильтра с указанным классом
+const filterContainer = document.querySelector('.categore-products-filter');
+if (filterContainer) {
+
+    // Элементы внутри фильтра
+    const filterTitles = filterContainer.querySelectorAll('.filter__title');
+    const productColumns = filterContainer.querySelectorAll('.products__column');
+    const h2Element = filterContainer.querySelector('h2');
+
+    // Функция для полной замены текста в h2
+    function updateH2Text(activeTitleElement) {
+        if (!h2Element || !activeTitleElement) return;
+
+        const newTitle = activeTitleElement.getAttribute('data-title');
+        if (newTitle) {
+            // Полностью заменяем содержимое h2
+            h2Element.innerHTML = `${newTitle}`;
+        }
+    }
+
+    // Функция для обновления активного фильтра
+    function setActiveFilter(activeFilterValue) {
+        // Убираем класс _active у всех фильтров
+        filterTitles.forEach(title => {
+            title.classList.remove('_active');
+        });
+
+        // Добавляем класс _active нужному фильтру
+        const activeTitle = Array.from(filterTitles).find(
+            title => title.dataset.filter === activeFilterValue
+        );
+        if (activeTitle) {
+            activeTitle.classList.add('_active');
+
+            // Обновляем текст h2 на основе data-title активного элемента
+            updateH2Text(activeTitle);
+        }
+
+        // Фильтруем продукты
+        productColumns.forEach(column => {
+            const columnFilter = column.dataset.filter;
+
+            if (columnFilter === activeFilterValue) {
+                column.classList.remove('_hide');
+            } else {
+                column.classList.add('_hide');
+            }
+        });
+    }
+
+    // Назначаем обработчики кликов на фильтры
+    filterTitles.forEach(title => {
+        title.addEventListener('click', function (e) {
+            e.preventDefault();
+            const filterValue = this.dataset.filter;
+            if (filterValue) {
+                setActiveFilter(filterValue);
+            }
+        });
+    });
+
+    // Активируем первый фильтр по умолчанию (если есть)
+    const firstActiveFilter = filterContainer.querySelector('.filter__title._active');
+    if (firstActiveFilter && firstActiveFilter.dataset.filter) {
+        setActiveFilter(firstActiveFilter.dataset.filter);
+    } else if (filterTitles.length > 0 && filterTitles[0].dataset.filter) {
+        // Если нет активного, активируем первый
+        setActiveFilter(filterTitles[0].dataset.filter);
+    }
+}

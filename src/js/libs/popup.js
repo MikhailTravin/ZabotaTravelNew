@@ -305,11 +305,19 @@ class Popup {
 		}
 	}
 	_openToHash() {
-		let classInHash = document.querySelector(`.${window.location.hash.replace('#', '')}`) ? `.${window.location.hash.replace('#', '')}` :
-			document.querySelector(`${window.location.hash}`) ? `${window.location.hash}` :
-				null;
+		// Проверяем, есть ли хэш в URL
+		if (!window.location.hash) return;
 
-		const buttons = document.querySelector(`[${this.options.attributeOpenButton} = "${classInHash}"]`) ? document.querySelector(`[${this.options.attributeOpenButton} = "${classInHash}"]`) : document.querySelector(`[${this.options.attributeOpenButton} = "${classInHash.replace('.', "#")}"]`);
+		let classInHash = document.querySelector(`.${window.location.hash.replace("#", "")}`)
+			? `.${window.location.hash.replace("#", "")}`
+			: document.querySelector(`${window.location.hash}`)
+				? `${window.location.hash}`
+				: null;
+
+		const buttons = document.querySelector(`[${this.options.attributeOpenButton} = "${classInHash}"]`)
+			? document.querySelector(`[${this.options.attributeOpenButton} = "${classInHash}"]`)
+			: document.querySelector(`[${this.options.attributeOpenButton} = "${classInHash.replace(".", "#")}"]`);
+
 		if (buttons && classInHash) this.open(classInHash);
 	}
 	// Утсановка хэша

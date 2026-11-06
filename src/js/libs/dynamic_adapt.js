@@ -8,6 +8,7 @@
 function DynamicAdapt(type) {
 	this.type = type;
 }
+
 DynamicAdapt.prototype.init = function () {
 	const _this = this;
 	// массив объектов
@@ -20,16 +21,27 @@ DynamicAdapt.prototype.init = function () {
 		const node = this.nodes[i];
 		const data = node.dataset.da.trim();
 		const dataArray = data.split(",");
+		const selector = dataArray[0].trim();
+		const destination = document.querySelector(selector);
+
+		// Проверка на существование destination
+		if (!destination) {
+			console.warn(`DynamicAdapt: destination "${selector}" not found for element:`, node);
+			continue;
+		}
+
 		const оbject = {};
 		оbject.element = node;
 		оbject.parent = node.parentNode;
-		оbject.destination = document.querySelector(dataArray[0].trim());
+		оbject.destination = destination;
 		оbject.breakpoint = dataArray[1] ? dataArray[1].trim() : "767";
 		оbject.place = dataArray[2] ? dataArray[2].trim() : "last";
 		оbject.index = this.indexInParent(оbject.parent, оbject.element);
 		this.оbjects.push(оbject);
 	}
+
 	this.arraySort(this.оbjects);
+
 	// массив уникальных медиа-запросов
 	this.mediaQueries = Array.prototype.map.call(this.оbjects, function (item) {
 		return '(' + this.type + "-width: " + item.breakpoint + "px)," + item.breakpoint;
@@ -37,6 +49,7 @@ DynamicAdapt.prototype.init = function () {
 	this.mediaQueries = Array.prototype.filter.call(this.mediaQueries, function (item, index, self) {
 		return Array.prototype.indexOf.call(self, item) === index;
 	});
+
 	// навешивание слушателя на медиа-запрос
 	// и вызов обработчика при первом запуске
 	for (let i = 0; i < this.mediaQueries.length; i++) {
@@ -54,6 +67,7 @@ DynamicAdapt.prototype.init = function () {
 		this.mediaHandler(matchMedia, оbjectsFilter);
 	}
 };
+
 DynamicAdapt.prototype.mediaHandler = function (matchMedia, оbjects) {
 	if (matchMedia.matches) {
 		for (let i = 0; i < оbjects.length; i++) {
@@ -62,7 +76,6 @@ DynamicAdapt.prototype.mediaHandler = function (matchMedia, оbjects) {
 			this.moveTo(оbject.place, оbject.element, оbject.destination);
 		}
 	} else {
-		//for (let i = 0; i < оbjects.length; i++) {
 		for (let i = оbjects.length - 1; i >= 0; i--) {
 			const оbject = оbjects[i];
 			if (оbject.element.classList.contains(this.daClassname)) {
@@ -71,9 +84,17 @@ DynamicAdapt.prototype.mediaHandler = function (matchMedia, оbjects) {
 		}
 	}
 };
+
 // Функция перемещения
 DynamicAdapt.prototype.moveTo = function (place, element, destination) {
+	// Проверка на существование destination
+	if (!destination) {
+		console.warn('DynamicAdapt: moveTo - destination is null for element:', element);
+		return;
+	}
+
 	element.classList.add(this.daClassname);
+
 	if (place === 'last' || place >= destination.children.length) {
 		destination.insertAdjacentElement('beforeend', element);
 		return;
@@ -82,22 +103,44 @@ DynamicAdapt.prototype.moveTo = function (place, element, destination) {
 		destination.insertAdjacentElement('afterbegin', element);
 		return;
 	}
-	destination.children[place].insertAdjacentElement('beforebegin', element);
-}
+
+	// Проверка на существование destination.children[place]
+	if (destination.children[place]) {
+		destination.children[place].insertAdjacentElement('beforebegin', element);
+	} else {
+		// Если указанный индекс не существует, добавляем в конец
+		destination.insertAdjacentElement('beforeend', element);
+	}
+};
+
 // Функция возврата
 DynamicAdapt.prototype.moveBack = function (parent, element, index) {
+	// Проверка на существование parent
+	if (!parent) {
+		console.warn('DynamicAdapt: moveBack - parent is null for element:', element);
+		// Если родитель не найден, просто удаляем класс и завершаем
+		element.classList.remove(this.daClassname);
+		return;
+	}
+
 	element.classList.remove(this.daClassname);
-	if (parent.children[index] !== undefined) {
+
+	if (parent.children && parent.children[index] !== undefined) {
 		parent.children[index].insertAdjacentElement('beforebegin', element);
 	} else {
 		parent.insertAdjacentElement('beforeend', element);
 	}
-}
+};
+
 // Функция получения индекса внутри родителя
 DynamicAdapt.prototype.indexInParent = function (parent, element) {
+	if (!parent || !parent.children) {
+		return 0;
+	}
 	const array = Array.prototype.slice.call(parent.children);
 	return Array.prototype.indexOf.call(array, element);
 };
+
 // Функция сортировки массива по breakpoint и place 
 // по возрастанию для this.type = min
 // по убыванию для this.type = max

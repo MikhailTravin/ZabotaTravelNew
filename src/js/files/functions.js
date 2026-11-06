@@ -599,10 +599,20 @@ export function showMore() {
 
 				const showMoreItems = showMoreContent.children;
 
-				// Получаем gap из CSS
-				const computedStyle = window.getComputedStyle(showMoreContent);
-				const gapValue = computedStyle.gap || computedStyle.rowGap;
-				const gap = parseFloat(gapValue) || 0;
+				// Получаем gap из CSS для конкретного ul внутри left-search-top__showmore
+				let gap = 0;
+				
+				// Для блока left-search-top__showmore используем стили его ul
+				if (isLeftSearchTopBlock && showMoreContent.tagName === 'UL') {
+					const computedStyle = window.getComputedStyle(showMoreContent);
+					const gapValue = computedStyle.gap || computedStyle.rowGap;
+					gap = parseFloat(gapValue) || 0;
+				} else {
+					// Для остальных блоков используем стандартный подход
+					const computedStyle = window.getComputedStyle(showMoreContent);
+					const gapValue = computedStyle.gap || computedStyle.rowGap;
+					gap = parseFloat(gapValue) || 0;
+				}
 
 				for (let index = 1; index <= showMoreItems.length; index++) {
 					const showMoreItem = showMoreItems[index - 1];
@@ -643,6 +653,8 @@ export function showMore() {
 
 			if (targetType === 'click') {
 				if (targetEvent.closest('[data-showmore-button]')) {
+					e.preventDefault();
+        			e.stopPropagation();
 					const showMoreButton = targetEvent.closest('[data-showmore-button]');
 					const showMoreBlock = showMoreButton.closest('[data-showmore]');
 					const showMoreContent = showMoreBlock.querySelector('[data-showmore-content]');
@@ -658,13 +670,18 @@ export function showMore() {
 							_slideUp(showMoreContent, showMoreSpeed, hiddenHeight, () => {
 								showMoreBlock.classList.remove('_showmore-active');
 
-								// Прокрутка к кнопке
-								const buttonRect = showMoreButton.getBoundingClientRect();
-								const scrollToPosition = window.scrollY + buttonRect.top - scrollOffset;
-								window.scrollTo({
-									top: scrollToPosition,
-									behavior: 'smooth'
-								});
+								// Прокрутка к кнопке только для определенных блоков и при ширине экрана <= 992px
+								const isBlockServices = showMoreBlock.classList.contains('block-services__showmore');
+								const isRoomLeftProduct = showMoreBlock.classList.contains('room-left-product__contents');
+
+								if ((isBlockServices || isRoomLeftProduct) && window.innerWidth <= 992) {
+									const buttonRect = showMoreButton.getBoundingClientRect();
+									const scrollToPosition = window.scrollY + buttonRect.top - scrollOffset;
+									window.scrollTo({
+										top: scrollToPosition,
+										behavior: 'smooth'
+									});
+								}
 							});
 						} else {
 							// Разворачивание
@@ -703,6 +720,7 @@ export function showMore() {
 		}
 	});
 }
+
 //================================================================================================================================================================================================================================================================================================================
 // Прочие полезные функции ================================================================================================================================================================================================================================================================================================================
 //================================================================================================================================================================================================================================================================================================================
