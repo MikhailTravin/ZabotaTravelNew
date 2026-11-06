@@ -20,7 +20,8 @@ body::after {
 	left: 0;
 	bottom: 0;
 	right: 0;
-	padding: 30px 50px;
+	/*padding: 30px 50px;*/
+	padding: calc(30px + env(safe-area-inset-top)) 50px calc(30px + env(safe-area-inset-bottom)) 50px;
 	transition: visibility 0.8s ease 0s;
 	visibility: hidden;
 	pointer-events: none;
@@ -33,6 +34,7 @@ body::after {
 	}
 	@media (max-width: $mobile) {
 		padding: 0px 0px 0px 0px;
+		padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom) 0;
 		overscroll-behavior: auto;
 		overscroll-behavior-y: contain;
 		overscroll-behavior-x: none;
@@ -58,7 +60,8 @@ body::after {
 	justify-content: center;
 	align-items: center;
 	@media (max-width: $mobile) {
-		justify-content: start;
+		justify-content: flex-start;
+		min-height: 100dvh;
 	}
 }
 .popup__content {
@@ -78,12 +81,14 @@ body::after {
 	}
 	@media (max-width: $mobile) {
 		overflow-y: auto;
-		max-height: 100vh;
+		max-height: 100dvh;
 		touch-action: pan-y;
 		max-width: 100%;
 		border-radius: 0px;
 		padding: 16px;
-		min-height: 100vh;
+		padding-top: calc(16px + env(safe-area-inset-top));
+        padding-bottom: calc(16px + env(safe-area-inset-bottom));
+		min-height: 100dvh;
 	}
 }
 
