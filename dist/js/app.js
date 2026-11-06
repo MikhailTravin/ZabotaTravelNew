@@ -6700,9 +6700,16 @@
                         const isTabsDescrBlock = showMoreBlock.classList.contains("tabs-descr__showmore");
                         if (window.innerWidth <= 768 && isLeftSearchTopBlock) showMoreTypeValue = 6; else if (window.innerWidth <= 768 && isTabsDescrBlock) showMoreTypeValue = 6; else if (window.innerWidth <= 600 && showMoreContent.classList.contains("block-services__body")) showMoreTypeValue = 3;
                         const showMoreItems = showMoreContent.children;
-                        const computedStyle = window.getComputedStyle(showMoreContent);
-                        const gapValue = computedStyle.gap || computedStyle.rowGap;
-                        const gap = parseFloat(gapValue) || 0;
+                        let gap = 0;
+                        if (isLeftSearchTopBlock && "UL" === showMoreContent.tagName) {
+                            const computedStyle = window.getComputedStyle(showMoreContent);
+                            const gapValue = computedStyle.gap || computedStyle.rowGap;
+                            gap = parseFloat(gapValue) || 0;
+                        } else {
+                            const computedStyle = window.getComputedStyle(showMoreContent);
+                            const gapValue = computedStyle.gap || computedStyle.rowGap;
+                            gap = parseFloat(gapValue) || 0;
+                        }
                         for (let index = 1; index <= showMoreItems.length; index++) {
                             const showMoreItem = showMoreItems[index - 1];
                             hiddenHeight += showMoreItem.offsetHeight;
@@ -6733,6 +6740,8 @@
                     const targetType = e.type;
                     if ("click" === targetType) {
                         if (targetEvent.closest("[data-showmore-button]")) {
+                            e.preventDefault();
+                            e.stopPropagation();
                             const showMoreButton = targetEvent.closest("[data-showmore-button]");
                             const showMoreBlock = showMoreButton.closest("[data-showmore]");
                             const showMoreContent = showMoreBlock.querySelector("[data-showmore-content]");
@@ -6741,12 +6750,16 @@
                             const isCollapsing = showMoreBlock.classList.contains("_showmore-active");
                             if (!showMoreContent.classList.contains("_slide")) if (isCollapsing) _slideUp(showMoreContent, showMoreSpeed, hiddenHeight, (() => {
                                 showMoreBlock.classList.remove("_showmore-active");
-                                const buttonRect = showMoreButton.getBoundingClientRect();
-                                const scrollToPosition = window.scrollY + buttonRect.top - scrollOffset;
-                                window.scrollTo({
-                                    top: scrollToPosition,
-                                    behavior: "smooth"
-                                });
+                                const isBlockServices = showMoreBlock.classList.contains("block-services__showmore");
+                                const isRoomLeftProduct = showMoreBlock.classList.contains("room-left-product__contents");
+                                if ((isBlockServices || isRoomLeftProduct) && window.innerWidth <= 992) {
+                                    const buttonRect = showMoreButton.getBoundingClientRect();
+                                    const scrollToPosition = window.scrollY + buttonRect.top - scrollOffset;
+                                    window.scrollTo({
+                                        top: scrollToPosition,
+                                        behavior: "smooth"
+                                    });
+                                }
                             })); else {
                                 showMoreBlock.classList.add("_showmore-active");
                                 _slideDown(showMoreContent, showMoreSpeed, hiddenHeight);
@@ -7024,6 +7037,7 @@
                 if (this.options.hashSettings.location) this.hash = this.targetOpen.selector.includes("#") ? this.targetOpen.selector : this.targetOpen.selector.replace(".", "#");
             }
             _openToHash() {
+                if (!window.location.hash) return;
                 let classInHash = document.querySelector(`.${window.location.hash.replace("#", "")}`) ? `.${window.location.hash.replace("#", "")}` : document.querySelector(`${window.location.hash}`) ? `${window.location.hash}` : null;
                 const buttons = document.querySelector(`[${this.options.attributeOpenButton} = "${classInHash}"]`) ? document.querySelector(`[${this.options.attributeOpenButton} = "${classInHash}"]`) : document.querySelector(`[${this.options.attributeOpenButton} = "${classInHash.replace(".", "#")}"]`);
                 if (buttons && classInHash) this.open(classInHash);
@@ -14247,10 +14261,16 @@ PERFORMANCE OF THIS SOFTWARE.
                 const node = this.nodes[i];
                 const data = node.dataset.da.trim();
                 const dataArray = data.split(",");
+                const selector = dataArray[0].trim();
+                const destination = document.querySelector(selector);
+                if (!destination) {
+                    console.warn(`DynamicAdapt: destination "${selector}" not found for element:`, node);
+                    continue;
+                }
                 const оbject = {};
                 оbject.element = node;
                 оbject.parent = node.parentNode;
-                оbject.destination = document.querySelector(dataArray[0].trim());
+                оbject.destination = destination;
                 оbject.breakpoint = dataArray[1] ? dataArray[1].trim() : "767";
                 оbject.place = dataArray[2] ? dataArray[2].trim() : "last";
                 оbject.index = this.indexInParent(оbject.parent, оbject.element);
@@ -14288,6 +14308,10 @@ PERFORMANCE OF THIS SOFTWARE.
             }
         };
         DynamicAdapt.prototype.moveTo = function(place, element, destination) {
+            if (!destination) {
+                console.warn("DynamicAdapt: moveTo - destination is null for element:", element);
+                return;
+            }
             element.classList.add(this.daClassname);
             if ("last" === place || place >= destination.children.length) {
                 destination.insertAdjacentElement("beforeend", element);
@@ -14297,13 +14321,19 @@ PERFORMANCE OF THIS SOFTWARE.
                 destination.insertAdjacentElement("afterbegin", element);
                 return;
             }
-            destination.children[place].insertAdjacentElement("beforebegin", element);
+            if (destination.children[place]) destination.children[place].insertAdjacentElement("beforebegin", element); else destination.insertAdjacentElement("beforeend", element);
         };
         DynamicAdapt.prototype.moveBack = function(parent, element, index) {
+            if (!parent) {
+                console.warn("DynamicAdapt: moveBack - parent is null for element:", element);
+                element.classList.remove(this.daClassname);
+                return;
+            }
             element.classList.remove(this.daClassname);
-            if (void 0 !== parent.children[index]) parent.children[index].insertAdjacentElement("beforebegin", element); else parent.insertAdjacentElement("beforeend", element);
+            if (parent.children && void 0 !== parent.children[index]) parent.children[index].insertAdjacentElement("beforebegin", element); else parent.insertAdjacentElement("beforeend", element);
         };
         DynamicAdapt.prototype.indexInParent = function(parent, element) {
+            if (!parent || !parent.children) return 0;
             const array = Array.prototype.slice.call(parent.children);
             return Array.prototype.indexOf.call(array, element);
         };
@@ -15052,6 +15082,160 @@ PERFORMANCE OF THIS SOFTWARE.
                 if (!selectElement.contains(event.target)) selectElement.classList.remove("active");
             }));
         }));
+        class ProfilesManager {
+            constructor(element) {
+                try {
+                    if ("string" === typeof element) this.container = document.querySelector(element); else if (element instanceof Element) this.container = element; else {
+                        console.warn("ProfilesManager: передан некорректный аргумент. Ожидается селектор или DOM-элемент");
+                        return;
+                    }
+                    if (!this.container) {
+                        console.warn("ProfilesManager: контейнер не найден");
+                        return;
+                    }
+                    this.moreLink = null;
+                    this.totalItems = 0;
+                    if (this.container.profilesManager) return;
+                    this.init();
+                    this.container.profilesManager = this;
+                } catch (error) {
+                    console.error("ProfilesManager: ошибка инициализации", error);
+                }
+            }
+            init() {
+                try {
+                    const parentBody = this.container.closest(".item-products-profile__body");
+                    this.moreLink = parentBody ? parentBody.querySelector("a") : null;
+                    this.totalItems = this.container.children.length;
+                    this.container.classList.remove("has-more");
+                    requestAnimationFrame((() => this.checkOverflow()));
+                    let resizeTimeout;
+                    window.addEventListener("resize", (() => {
+                        clearTimeout(resizeTimeout);
+                        resizeTimeout = setTimeout((() => this.checkOverflow()), 100);
+                    }));
+                    const observer = new MutationObserver((mutations => {
+                        const hasSignificantChanges = mutations.some((m => "childList" === m.type || "attributes" === m.type && "style" === m.attributeName));
+                        if (hasSignificantChanges) {
+                            this.totalItems = this.container.children.length;
+                            this.checkOverflow();
+                        }
+                    }));
+                    observer.observe(this.container, {
+                        childList: true,
+                        subtree: false,
+                        attributes: false
+                    });
+                } catch (error) {
+                    console.error("ProfilesManager: ошибка в init", error);
+                }
+            }
+            checkOverflow() {
+                if (!this.container || !this.container.isConnected) return;
+                try {
+                    const style = window.getComputedStyle(this.container);
+                    if ("none" === style.display || "hidden" === style.visibility) return;
+                    const hasOverflow = this.container.scrollWidth > this.container.clientWidth + 2;
+                    if (hasOverflow) {
+                        this.container.classList.add("has-more");
+                        this.updateMoreLinkCount();
+                    } else this.container.classList.remove("has-more");
+                } catch (error) {
+                    console.error("ProfilesManager: ошибка в checkOverflow", error);
+                }
+            }
+            updateMoreLinkCount() {
+                if (!this.moreLink) return;
+                try {
+                    const visibleCount = this.calculateVisibleCount();
+                    const hiddenCount = this.totalItems - visibleCount;
+                    if (hiddenCount > 0) this.moreLink.textContent = `+${hiddenCount}`; else if (this.container.scrollWidth > this.container.clientWidth + 2) this.moreLink.textContent = "+1";
+                } catch (error) {
+                    console.error("ProfilesManager: ошибка в updateMoreLinkCount", error);
+                }
+            }
+            calculateVisibleCount() {
+                try {
+                    const containerWidth = this.container.clientWidth;
+                    let usedWidth = 0;
+                    let visibleCount = 0;
+                    const containerStyle = window.getComputedStyle(this.container);
+                    const gap = parseInt(containerStyle.gap) || 4;
+                    const tolerance = 2;
+                    for (let i = 0; i < this.container.children.length; i++) {
+                        const item = this.container.children[i];
+                        const itemWidth = item.offsetWidth;
+                        if (0 === itemWidth) continue;
+                        if (i > 0) usedWidth += gap;
+                        if (usedWidth + itemWidth <= containerWidth + tolerance) {
+                            usedWidth += itemWidth;
+                            visibleCount++;
+                        } else break;
+                    }
+                    return visibleCount;
+                } catch (error) {
+                    console.error("ProfilesManager: ошибка в calculateVisibleCount", error);
+                    return 0;
+                }
+            }
+            refresh() {
+                requestAnimationFrame((() => this.checkOverflow()));
+            }
+        }
+        if ("loading" === document.readyState) document.addEventListener("DOMContentLoaded", initializeProfilesManagers); else initializeProfilesManagers();
+        function initializeProfilesManagers() {
+            try {
+                setTimeout((() => {
+                    const containers = document.querySelectorAll(".item-products-profile__items");
+                    containers.forEach((container => {
+                        if (!container.profilesManager) new ProfilesManager(container);
+                    }));
+                    if ("complete" === document.readyState) containers.forEach((container => {
+                        if (container.profilesManager) container.profilesManager.refresh();
+                    })); else window.addEventListener("load", (() => {
+                        containers.forEach((container => {
+                            if (container.profilesManager) container.profilesManager.refresh();
+                        }));
+                    }));
+                }), 0);
+            } catch (error) {
+                console.error("ProfilesManager: ошибка инициализации менеджеров", error);
+            }
+        }
+        const filterContainer = document.querySelector(".categore-products-filter");
+        if (filterContainer) {
+            const filterTitles = filterContainer.querySelectorAll(".filter__title");
+            const productColumns = filterContainer.querySelectorAll(".products__column");
+            const h2Element = filterContainer.querySelector("h2");
+            function updateH2Text(activeTitleElement) {
+                if (!h2Element || !activeTitleElement) return;
+                const newTitle = activeTitleElement.getAttribute("data-title");
+                if (newTitle) h2Element.innerHTML = `${newTitle}`;
+            }
+            function setActiveFilter(activeFilterValue) {
+                filterTitles.forEach((title => {
+                    title.classList.remove("_active");
+                }));
+                const activeTitle = Array.from(filterTitles).find((title => title.dataset.filter === activeFilterValue));
+                if (activeTitle) {
+                    activeTitle.classList.add("_active");
+                    updateH2Text(activeTitle);
+                }
+                productColumns.forEach((column => {
+                    const columnFilter = column.dataset.filter;
+                    if (columnFilter === activeFilterValue) column.classList.remove("_hide"); else column.classList.add("_hide");
+                }));
+            }
+            filterTitles.forEach((title => {
+                title.addEventListener("click", (function(e) {
+                    e.preventDefault();
+                    const filterValue = this.dataset.filter;
+                    if (filterValue) setActiveFilter(filterValue);
+                }));
+            }));
+            const firstActiveFilter = filterContainer.querySelector(".filter__title._active");
+            if (firstActiveFilter && firstActiveFilter.dataset.filter) setActiveFilter(firstActiveFilter.dataset.filter); else if (filterTitles.length > 0 && filterTitles[0].dataset.filter) setActiveFilter(filterTitles[0].dataset.filter);
+        }
         window["FLS"] = false;
         isWebp();
         menuInit();
